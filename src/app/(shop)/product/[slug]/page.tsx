@@ -1,21 +1,50 @@
+export const revalidate = 604800;
+
 import { notFound } from 'next/navigation';
 
-import { initialData } from '@/seed/seed';
 import { titleFont } from '@/config/fonts';
-import { ProductMobileSlideshow, ProductSlideshow, QuantitySelector, SizeSelector } from '@/components';
+import { ProductMobileSlideshow, ProductSlideshow, QuantitySelector, SizeSelector, StockLabel } from '@/components';
+import { getProductBySlug } from '@/actions';
+import { Metadata, ResolvingMetadata } from 'next';
+import { AddTocart } from './ui/AddTocart';
 
 interface Props {
-  params: {
+  params: Promise<{
     slug: string;
-  };
+  }>;
+}
+
+export async function generateMetadata(
+  { params  }: Props,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  // read route params
+  const slug = (await params).slug
+ 
+  // fetch data
+  const product = await getProductBySlug(slug);
+ 
+  // optionally access and extend (rather than replace) parent metadata
+  //const previousImages = (await parent).openGraph?.images || []
+ 
+  return {
+    title: product?.title ?? 'producto no encontrado',
+    description: product?.description ?? '',
+    openGraph: {
+      title: product?.title ?? 'producto no encontrado',
+      description: product?.description ?? '',
+      images: [`/products/${ product?.images[0]}`],
+    },
+  }
 }
 
 
 
-export default function ( { params }: Props ) {
 
-  const { slug } = params;
-  const product = initialData.products.find( product => product.slug === slug );
+export default async function ProductByIdPage( { params }: Props ) {
+  const resolvedParams = await params;
+  
+  const product = await getProductBySlug( resolvedParams.slug );
 
   if ( !product ) {
     notFound();
@@ -35,7 +64,7 @@ export default function ( { params }: Props ) {
           images={ product.images }
           className="block md:hidden"
         />
-        
+      
         {/* Desktop Slideshow */}
         <ProductSlideshow 
           title={ product.title }
@@ -49,28 +78,14 @@ export default function ( { params }: Props ) {
       {/* Detalles */ }
       <div className="col-span-1 px-5">
 
+       <StockLabel slug={product.slug}/>
+
         <h1 className={ ` ${ titleFont.className } antialiased font-bold text-xl` }>
           { product.title }
         </h1>
         <p className="text-lg mb-5">${ product.price }</p>
 
-        {/* Selector de Tallas */ }
-        <SizeSelector
-          selectedSize={ product.sizes[ 1 ] }
-          availableSizes={ product.sizes }
-        />
-
-
-        {/* Selector de Cantidad */ }
-        <QuantitySelector 
-          quantity={ 2 }
-        />
-
-
-        {/* Button */ }
-        <button className="btn-primary my-5">
-          Agregar al carrito
-        </button>
+      <AddTocart product={product}/>
 
         {/* Descripción */ }
         <h3 className="font-bold text-sm">Descripción</h3>
